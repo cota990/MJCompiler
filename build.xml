@@ -7,9 +7,9 @@
 			
 			<fileset dir="src/rs/ac/bg/etf/pp1">
 				
-				<exclude name="sym.java"/>
 				<exclude name="sym_old.java"/>
 				<exclude name="util/Log4JUtils.java"/>
+				<exclude name="Yylex.java"/>
 			
 			</fileset>
 		
@@ -20,6 +20,7 @@
 			<fileset dir="spec">
 				
 				<exclude name="mjlexer.flex"/>
+				<exclude name="mjparser.cup"/>
 			
 			</fileset>
 		
@@ -35,7 +36,7 @@
 	
 	</target>
 	
-	<target name="lexerGen" depends="delete">
+	<target name="lexerGen">
 		
 		<java jar="lib/JFlex.jar" fork="true">
 			
@@ -47,13 +48,40 @@
 		
 	</target>
 	
-	<target name="compile" depends="lexerGen">
+	<target name="parserGen" depends="delete">
+		
+		<record name="logs/parser_build.txt" action="start"/>
+		<java jar="lib/cup_v10k.jar" fork="true">
+			
+			<arg value="-destdir"/>
+			<arg value="src/rs/ac/bg/etf/pp1"/>
+			<arg value="-ast"/>
+			<arg value="src.rs.ac.bg.etf.pp1.ast"/>
+			<arg value="-parser"/>
+			<arg value="MJParser"/>
+			<arg value="-buildtree"/>
+			<arg value="spec/mjparser.cup"/>
+			
+		</java>
+		<record name="logs/parser_build.txt" action="stop"/>
+		
+	</target>
+	
+	<target name="repackage" depends="parserGen">
+		
+		<!-- Replaces all of the references to the old package name in files in the "src" directory -->
+		<replace dir="src" value="rs.ac.bg.etf.pp1.ast" token="src.rs.ac.bg.etf.pp1.ast" summary="true"/>
+		
+	</target>
+	
+	<target name="compile" depends="repackage">
 		
 		<javac srcdir="src/rs/ac/bg/etf/pp1" includeantruntime="false">
 			
 			<classpath>
 				
 				<pathelement path="lib/JFlex.jar"/>
+				<pathelement path="lib/cup_v10k.jar"/>
 				<pathelement path="lib/log4j-1.2.17.jar"/>
 				
 			</classpath>

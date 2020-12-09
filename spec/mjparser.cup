@@ -1,0 +1,335 @@
+package rs.ac.bg.etf.pp1;
+
+import java_cup.runtime.*;
+import org.apache.log4j.*;
+import rs.ac.bg.etf.pp1.ast.*;
+
+parser code {:
+
+	Logger log = Logger.getLogger (getClass());
+	
+	private Boolean syntaxErrorFound = false;
+
+	public Boolean syntaxErrorFound () {
+		return syntaxErrorFound;
+	}
+   
+    // redefined error methods
+     
+    public void report_fatal_error(String message, Object info) throws java.lang.Exception {
+      done_parsing();
+      report_error(message, info);
+    }
+  
+    public void syntax_error(Symbol cur_token) {
+        report_error("Syntax Error", cur_token);
+    }
+  
+    public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
+        report_fatal_error("Fatal Syntax Error, parsing interrupted", cur_token);
+    }
+
+    public void report_error(String message, Object info) {
+		syntaxErrorFound = true;
+    	StringBuilder msg = new StringBuilder(message); 
+    	if (info instanceof Symbol)
+            msg.append (" on line ").append(((Symbol)info).left);
+        log.error(msg.toString());
+    }
+
+:}
+
+scan with {:
+	
+	Symbol s = this.getScanner().next_token();
+	if (s != null && s.value != null) {
+		log.info (s.toString() + " " + s.value.toString() + " line: " + s.left + ", column: " + s.right);
+	}
+	return s;
+	
+:}
+
+terminal PROGRAM, BREAK, CLASS, ENUM, ELSE, CONST, IF, SWITCH, DO, WHILE, NEW, PRINT, READ, RETURN, VOID, EXTENDS, CONTINUE, CASE;
+terminal ADD, SUB, MUL, DIV, MOD;
+terminal EQUALS, NOT_EQUALS, GREATER_THAN, GREATER_THAN_EQUALS, LESS_THAN, LESS_THAN_EQUALS;
+terminal AND, OR;
+terminal ASSIGN, INC, DEC;
+terminal SEMICOLON, COMMA, PERIOD;
+terminal LEFT_PARENTHESIS, RIGHT_PARENTHESIS, LEFT_BRACKET, RIGHT_BRACKET, LEFT_BRACE, RIGHT_BRACE;
+terminal QUESTION_MARK, COLON;
+terminal String IDENT;
+terminal Integer NUMBER;
+terminal Character CHAR;
+terminal Boolean BOOL;
+
+non terminal Program;
+non terminal GlobalDeclarationsList, GlobalDeclaration;
+non terminal GlobalMethodDeclarationsList, ClassMethodDeclarationsList;
+non terminal ConstDecl, VarDecl, ClassDecl;
+non terminal MultipleConstDecl, SingleConstDecl, ConstValue;
+non terminal MultipleVarDecl, SingleVarDecl, ArrayVariableOption;
+non terminal ExtendsOption, FieldsDeclarationsList, ClassMethodDeclarationsOption;
+non terminal FieldDecl, MultipleFieldDecl, SingleFieldDecl;
+non terminal MethodDecl, ReturnType, FormParsOption, LocalVarDeclarationsList, StatementList;
+non terminal FormPars, SingleFormPar;
+non terminal LocalVarDecl, MultipleLocalVarDecl, SingleLocalVarDecl;
+non terminal Type;
+non terminal Statement, MatchedStatement, UnmatchedStatement;
+non terminal CaseStatementList, CaseStatement, ReturnExprOption, PrintOption;
+non terminal DesignatorStatement, ActParsOption;
+non terminal ActPars, SingleActPar;
+non terminal Condition, StatementCondition, CondTerm, CondFact, FirstExpr, SecondExpr, FirstCondExpr, SecondCondExpr, NonCondExpr, CondExpr;
+non terminal Expr;
+non terminal Term;
+non terminal Factor;
+non terminal Designator;
+non terminal Assignop;
+non terminal Relop;
+non terminal Addop;
+non terminal Mulop;
+
+Program ::= (Program) PROGRAM IDENT:programName GlobalDeclarationsList LEFT_BRACE GlobalMethodDeclarationsList RIGHT_BRACE ;
+
+GlobalDeclarationsList ::= (GlobalDeclarations) GlobalDeclarationsList GlobalDeclaration
+                           |
+						   (NoGlobalDeclarations) /* epsilon */ ;
+						   
+GlobalMethodDeclarationsList ::= (GlobalMethodDeclarations) GlobalMethodDeclarationsList MethodDecl
+                                 |
+								 (NoGlobalMethodDeclarations) /* epsilon */ ;
+								 
+GlobalDeclaration ::= (ConstDeclaration) ConstDecl
+                      |
+					  (VarDeclaration) VarDecl
+					  |
+					  (ClassDeclaration) ClassDecl ;
+					  
+ConstDecl ::= (ConstDecl) CONST Type MultipleConstDecl SEMICOLON ;
+
+MultipleConstDecl ::= (MultipleConstDeclaration) MultipleConstDecl COMMA SingleConstDecl
+                      |
+					  (SingleConstDeclaration) SingleConstDecl ;
+					  
+SingleConstDecl ::= (SingleConstDecl) IDENT:constName ASSIGN ConstValue ;
+
+ConstValue ::= (NumberConst) NUMBER:numberConst
+               |
+			   (CharConst) CHAR:charConst
+			   |
+			   (BoolConst) BOOL:boolConst ;
+			   
+VarDecl ::= (VarDecl) Type MultipleVarDecl SEMICOLON ;
+
+MultipleVarDecl ::= (MultipleVarDeclaration) MultipleVarDecl COMMA SingleVarDecl
+                    |
+					(SingleVarDeclaration) SingleVarDecl ;
+					
+SingleVarDecl ::= (SingleVarDecl) IDENT:varName ArrayVariableOption ;
+
+ArrayVariableOption ::= (ArrayVariable) LEFT_BRACKET RIGHT_BRACKET
+                        |
+						(NoArrayVariable) /* epsilon */ ;
+						
+ClassDecl ::= (ClassDecl) CLASS IDENT:className ExtendsOption LEFT_BRACE FieldsDeclarationsList ClassMethodDeclarationsOption RIGHT_BRACE ;
+
+ExtendsOption ::= (ClassInheritance) EXTENDS Type:superClassName
+                  |
+				  (NoClassInheritance) /* epsilon */ ;
+				  
+FieldsDeclarationsList ::= (FieldsDeclarations) FieldsDeclarationsList FieldDecl 
+                           |
+						   (NoFieldsDeclarations) /* epsilon */ ;
+						   
+FieldDecl ::= (FieldDecl) Type MultipleFieldDecl SEMICOLON ;
+						   
+MultipleFieldDecl ::= (MultipleFieldDeclaration) MultipleFieldDecl COMMA SingleFieldDecl
+                      |
+					  (SingleFieldDeclaration) SingleFieldDecl ;
+			  
+SingleFieldDecl ::= (SingleFieldDecl) IDENT:fieldName ArrayVariableOption ;
+
+ClassMethodDeclarationsOption ::= (ClassMethods) LEFT_BRACE ClassMethodDeclarationsList RIGHT_BRACE
+                                  |
+								  (NoClassMethods) /* epsilon */ ;
+								  
+ClassMethodDeclarationsList ::= (ClassMethodDeclarations) ClassMethodDeclarationsList MethodDecl
+                                |
+								(NoClassMethodDeclarations) /* epsilon */ ;
+								
+MethodDecl ::= (MethodDecl) ReturnType IDENT:methodName LEFT_PARENTHESIS FormParsOption RIGHT_PARENTHESIS LocalVarDeclarationsList LEFT_BRACE StatementList RIGHT_BRACE ;
+
+ReturnType ::= (NoVoidReturn) Type:returnType
+               |
+			   (VoidReturn) VOID ;
+			   
+FormParsOption ::= (FormalParameters) FormPars
+                   |
+				   (NoFormalParameters) /* epsilon */ ;
+				   
+FormPars ::= (MultipleFormalParameters) FormPars COMMA SingleFormPar
+             |
+			 (SingleFormalParameter) SingleFormPar ;
+			 
+SingleFormPar ::= (SingleFormPar) Type IDENT:formParName ArrayVariableOption ;
+
+LocalVarDeclarationsList ::= (LocalVarDeclarations) LocalVarDeclarationsList LocalVarDecl
+                             |
+							 (NoLocalVarDeclarations) /* epsilon */ ;
+							 
+LocalVarDecl ::= (LocalVarDecl) Type MultipleLocalVarDecl SEMICOLON ;
+
+MultipleLocalVarDecl ::= (MultipleLocalVarDeclaration) MultipleLocalVarDecl COMMA SingleLocalVarDecl
+                         |
+						 (SingleLocalVarDeclaration) SingleLocalVarDecl ;
+						 
+SingleLocalVarDecl ::= (SingleLocalVarDecl) IDENT:localVarName ArrayVariableOption ;
+
+Type ::= (Type) IDENT:typeName ;
+
+StatementList ::= (Statemenets) StatementList Statement
+                  |
+				  (NoStatements) /* epsilon */ ;
+				  
+Statement ::= (MatchedStmt) MatchedStatement
+              |
+			  (UnmatchedStmt) UnmatchedStatement ;
+			  
+MatchedStatement ::= (MatchedDesignatorStatement) DesignatorStatement SEMICOLON
+                     |
+					 (MatchedIfStatement) IF LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS MatchedStatement ELSE MatchedStatement
+					 |
+					 (MatchedWhileStatement) DO MatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON
+					 |
+					 (MatchedSwitchStatement) SWITCH LEFT_PARENTHESIS Expr RIGHT_PARENTHESIS LEFT_BRACE CaseStatementList RIGHT_BRACE
+					 |
+					 (BreakStatement) BREAK SEMICOLON
+					 |
+					 (ContinueStatement) CONTINUE SEMICOLON
+					 |
+					 (ReturnStatement) RETURN ReturnExprOption SEMICOLON
+					 |
+					 (ReadStatement) READ LEFT_PARENTHESIS Designator RIGHT_PARENTHESIS SEMICOLON
+					 |
+					 (PrintStatement) PRINT LEFT_PARENTHESIS Expr PrintOption RIGHT_PARENTHESIS SEMICOLON
+					 |
+					 (StatementBlock) LEFT_BRACE StatementList RIGHT_BRACE ;
+					 
+UnmatchedStatement ::= (UnmatchedIfStatement) IF LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS Statement
+                       |
+					   (UnmatchedElseStatement) IF LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS MatchedStatement ELSE UnmatchedStatement
+					   |
+					   (UnmatchedWhileStatement) DO UnmatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON ;
+					   
+CaseStatementList ::= (CaseStatements) CaseStatementList CaseStatement
+                      |
+					  (NoCaseStatements) /* epsilon */ ;
+					  
+CaseStatement ::= (CaseStatement) CASE NUMBER COLON StatementList ;
+
+ReturnExprOption ::= (ReturnExpr) Expr
+                     |
+					 (NoReturnExpr) /* epsilon */ ;
+					 
+PrintOption ::= (PrintArgument) COMMA NUMBER
+                |
+				(NoPrintArgument) /* epsilon */ ;
+				
+DesignatorStatement ::= (AssignStatement) Designator Assignop Expr
+                        |
+						(MethodCallStatement) Designator LEFT_PARENTHESIS ActParsOption RIGHT_PARENTHESIS
+						|
+						(IncrementStatement) Designator INC
+						|
+						(DecrementStatement) Designator DEC ;
+						
+ActParsOption ::= (ActualParameters) ActPars
+                  |
+				  (NoActualParameters) /* epsilon */ ;
+				  
+ActPars ::= (MultipleActualParameters) ActPars COMMA SingleActPar
+            |
+			(SingleActualParameter) SingleActPar ;
+			
+SingleActPar ::= (SingleActPar) Expr ;
+
+StatementCondition ::= (ConditionalOperator) CondExpr
+                       |
+					   (NoConditionalOperator) Condition ;
+
+Condition ::= (MultipleTermCondition) Condition OR CondTerm
+              |
+			  (SingleTermCondition) CondTerm ;
+			  
+CondTerm ::= (MultipleFactTerm) CondTerm AND CondFact
+             |
+			 (SingleFactTerm) CondFact ;
+			 
+CondFact ::= (MultipleExprFactor) FirstExpr Relop SecondExpr
+             |
+			 (SingleExprFactor) NonCondExpr ;
+			 
+FirstCondExpr ::= (FirstCondExpr) Expr;
+
+SecondCondExpr ::= (SecondCondExpr) Expr;
+			 
+FirstExpr ::= (FirstExpr) NonCondExpr ;
+
+SecondExpr ::= (SecondExpr) NonCondExpr ;
+
+Expr ::= (ConditionalOperatorExpr) CondExpr
+         |
+		 (NoConditionalOperatorExpr) NonCondExpr ;
+		 
+CondExpr ::= (CondExpr) Condition QUESTION_MARK FirstCondExpr COLON SecondCondExpr ;
+
+NonCondExpr ::= (MultipleTermExpr) NonCondExpr Addop Term
+                |
+				(SingleTermExpr) Term
+				|
+				(MinusTermExpr) SUB Term ;
+				
+Term ::= (MultipleFactorTerm) Term Mulop Factor
+         |
+		 (SingleFactorTerm) Factor ;
+		 
+Factor ::= (FactorDesignator) Designator
+           |
+		   (MethodCallFactor) Designator LEFT_PARENTHESIS ActParsOption RIGHT_PARENTHESIS
+		   |
+		   (ConstFactor) ConstValue
+		   |
+		   (NewObjectFactor) NEW Type
+		   |
+		   (NewArrayFactor) NEW Type LEFT_BRACKET Expr RIGHT_BRACKET
+		   |
+		   (CompositeFactor) LEFT_PARENTHESIS Expr RIGHT_PARENTHESIS ;
+		   
+Designator ::= (SimpleDesignator) IDENT:designatorName
+               |
+			   (ClassDesignator) Designator PERIOD IDENT:fieldOrMethodName
+			   |
+			   (ArrayDesignator) Designator LEFT_BRACKET Expr RIGHT_BRACKET ;
+			   
+Assignop ::= (Assign) ASSIGN ;
+
+Relop ::= (Equals) EQUALS
+          |
+		  (NotEquals) NOT_EQUALS
+		  |
+		  (GreaterThan) GREATER_THAN
+		  |
+		  (GreaterThanEquals) GREATER_THAN_EQUALS
+		  |
+		  (LessThan) LESS_THAN
+		  |
+		  (LessThanEquals) LESS_THAN_EQUALS ;
+		  
+Addop ::= (Add) ADD
+          |
+		  (Sub) SUB ;
+		  
+Mulop ::= (Mul) MUL
+          |
+		  (Div) DIV
+		  |
+		  (Mod) MOD ;
