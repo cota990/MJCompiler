@@ -1,6 +1,7 @@
 package rs.ac.bg.etf.pp1;
 
 import java_cup.runtime.Symbol;
+import org.apache.log4j.*;
 
 %%
 
@@ -23,6 +24,10 @@ import java_cup.runtime.Symbol;
 %eofval}
 
 %{
+
+	Logger log = Logger.getLogger (getClass());
+	
+	public Boolean errorFound = false;
 
 	// utility method for token creation
 	// args : type - sym.java constant
@@ -123,4 +128,4 @@ import java_cup.runtime.Symbol;
 
 // errors
 
-. { System.err.println("Lexical error:  (" + yytext() + ") at line: " + (yyline + 1) + " column: " + yycolumn); }
+. { log.error("Lexical error:  (" + yytext() + ") at line: " + (yyline + 1) + " column: " + yycolumn); errorFound = true; }

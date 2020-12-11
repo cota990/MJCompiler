@@ -1,6 +1,7 @@
 package rs.ac.bg.etf.pp1;
 
 import java_cup.runtime.*;
+import java.util.*;
 import org.apache.log4j.*;
 import rs.ac.bg.etf.pp1.ast.*;
 
@@ -9,9 +10,32 @@ parser code {:
 	Logger log = Logger.getLogger (getClass());
 	
 	private Boolean syntaxErrorFound = false;
+	
+	private StringBuilder errorMessage = new StringBuilder ();
+	
+	private List<String> errorMessages = new ArrayList<String> ();
+	private List<String> errorDetailedDescriptions = new ArrayList<String> ();
 
 	public Boolean syntaxErrorFound () {
 		return syntaxErrorFound;
+	}
+	
+	public List<String> getErrorMessages () {
+	
+		return errorMessages;
+		
+	}
+	
+	public List<String> getErrorDetailedDescriptions () {
+	
+		return errorDetailedDescriptions;
+		
+	}
+	
+	public void detailedErrorDescription (String description) {
+	
+		errorDetailedDescriptions.add (description);
+		
 	}
    
     // redefined error methods
@@ -22,7 +46,12 @@ parser code {:
     }
   
     public void syntax_error(Symbol cur_token) {
-        report_error("Syntax Error", cur_token);
+        //report_error("Syntax Error", cur_token);
+		syntaxErrorFound = true;
+		StringBuilder msg = new StringBuilder("Syntax Error"); 
+    	msg.append (" on line ").append(cur_token.left);
+		msg.append (" and column ").append(cur_token.right);
+		errorMessages.add (msg.toString ());
     }
   
     public void unrecovered_syntax_error(Symbol cur_token) throws java.lang.Exception {
@@ -32,7 +61,7 @@ parser code {:
     public void report_error(String message, Object info) {
 		syntaxErrorFound = true;
     	StringBuilder msg = new StringBuilder(message); 
-    	if (info instanceof Symbol)
+    	if (info instanceof Symbol) 
             msg.append (" on line ").append(((Symbol)info).left);
         log.error(msg.toString());
     }
@@ -67,18 +96,18 @@ non terminal GlobalDeclarationsList, GlobalDeclaration;
 non terminal GlobalMethodDeclarationsList, ClassMethodDeclarationsList;
 non terminal ConstDecl, VarDecl, ClassDecl;
 non terminal MultipleConstDecl, SingleConstDecl, ConstValue;
-non terminal MultipleVarDecl, SingleVarDecl, ArrayVariableOption;
-non terminal ExtendsOption, FieldsDeclarationsList, ClassMethodDeclarationsOption;
-non terminal FieldDecl, MultipleFieldDecl, SingleFieldDecl;
+non terminal MultipleVarDeclSyntaxCheck, MultipleVarDecl, SingleVarDecl, SingleVarDeclSyntaxCheck, ArrayVariableOption;
+non terminal ExtendsOption, ExtendsSyntaxCheck, FieldsDeclarationsList, ClassMethodDeclarationsOption;
+non terminal FieldDecl, MultipleFieldDeclSyntaxCheck, MultipleFieldDecl, SingleFieldDecl, SingleFieldDeclSyntaxCheck;
 non terminal MethodDecl, ReturnType, FormParsOption, LocalVarDeclarationsList, StatementList;
-non terminal FormPars, SingleFormPar;
+non terminal FormPars, SingleFormParSyntaxCheck, SingleFormPar;
 non terminal LocalVarDecl, MultipleLocalVarDecl, SingleLocalVarDecl;
 non terminal Type;
 non terminal Statement, MatchedStatement, UnmatchedStatement;
 non terminal CaseStatementList, CaseStatement, ReturnExprOption, PrintOption;
-non terminal DesignatorStatement, ActParsOption;
+non terminal DesignatorStatement, Source, ActParsOption;
 non terminal ActPars, SingleActPar;
-non terminal Condition, StatementCondition, CondTerm, CondFact, FirstExpr, SecondExpr, FirstCondExpr, SecondCondExpr, NonCondExpr, CondExpr;
+non terminal Condition, IfStatementSyntaxCheck, StatementCondition, CondTerm, CondFact, FirstExpr, SecondExpr, FirstCondExpr, SecondCondExpr, NonCondExpr, CondExpr;
 non terminal Expr;
 non terminal Term;
 non terminal Factor;
@@ -118,11 +147,21 @@ ConstValue ::= (NumberConst) NUMBER:numberConst
 			   |
 			   (BoolConst) BOOL:boolConst ;
 			   
-VarDecl ::= (VarDecl) Type MultipleVarDecl SEMICOLON ;
+VarDecl ::= (VarDecl) MultipleVarDeclSyntaxCheck SEMICOLON ;
 
-MultipleVarDecl ::= (MultipleVarDeclaration) MultipleVarDecl COMMA SingleVarDecl
+MultipleVarDeclSyntaxCheck ::= (MultipleVarDeclSuccess) Type MultipleVarDecl
+                               |
+							   (MultipleVarDeclError) error:e
+							   {: parser.detailedErrorDescription ("error in global variable declaration"); :} ;
+
+MultipleVarDecl ::= (MultipleVarDeclaration) MultipleVarDecl COMMA SingleVarDeclSyntaxCheck
                     |
-					(SingleVarDeclaration) SingleVarDecl ;
+					(SingleVarDeclaration) SingleVarDeclSyntaxCheck ;
+					
+SingleVarDeclSyntaxCheck ::= (SingleVarDeclSuccess) SingleVarDecl
+                             |
+							 (SingleVarDeclError) error:e
+							 {: parser.detailedErrorDescription ("error in global variable declaration"); :} ;
 					
 SingleVarDecl ::= (SingleVarDecl) IDENT:varName ArrayVariableOption ;
 
@@ -132,19 +171,34 @@ ArrayVariableOption ::= (ArrayVariable) LEFT_BRACKET RIGHT_BRACKET
 						
 ClassDecl ::= (ClassDecl) CLASS IDENT:className ExtendsOption LEFT_BRACE FieldsDeclarationsList ClassMethodDeclarationsOption RIGHT_BRACE ;
 
-ExtendsOption ::= (ClassInheritance) EXTENDS Type:superClassName
+ExtendsOption ::= (ClassInheritance) ExtendsSyntaxCheck
                   |
 				  (NoClassInheritance) /* epsilon */ ;
+				  
+ExtendsSyntaxCheck ::= (InheritanceSuccess) EXTENDS Type:superClassName
+                       |
+					   (InheritanceError) error:e
+					   {: parser.detailedErrorDescription ("error in class inheritance"); :} ;
 				  
 FieldsDeclarationsList ::= (FieldsDeclarations) FieldsDeclarationsList FieldDecl 
                            |
 						   (NoFieldsDeclarations) /* epsilon */ ;
 						   
-FieldDecl ::= (FieldDecl) Type MultipleFieldDecl SEMICOLON ;
+FieldDecl ::= (FieldDecl) MultipleFieldDeclSyntaxCheck SEMICOLON ;
+
+MultipleFieldDeclSyntaxCheck ::= (MultipleFieldDeclSuccess) Type MultipleFieldDecl
+                                 |
+								 (MultipleFieldDeclError) error:e
+								 {: parser.detailedErrorDescription ("error in class field declaration"); :} ;
 						   
-MultipleFieldDecl ::= (MultipleFieldDeclaration) MultipleFieldDecl COMMA SingleFieldDecl
+MultipleFieldDecl ::= (MultipleFieldDeclaration) MultipleFieldDecl COMMA SingleFieldDeclSyntaxCheck
                       |
-					  (SingleFieldDeclaration) SingleFieldDecl ;
+					  (SingleFieldDeclaration) SingleFieldDeclSyntaxCheck ;
+					  
+SingleFieldDeclSyntaxCheck ::= (SingleFieldDeclSuccess) SingleFieldDecl
+                               |
+							   (SingleFieldDeclError) error:e
+							   {: parser.detailedErrorDescription ("error in class field declaration"); :} ;
 			  
 SingleFieldDecl ::= (SingleFieldDecl) IDENT:fieldName ArrayVariableOption ;
 
@@ -166,9 +220,14 @@ FormParsOption ::= (FormalParameters) FormPars
                    |
 				   (NoFormalParameters) /* epsilon */ ;
 				   
-FormPars ::= (MultipleFormalParameters) FormPars COMMA SingleFormPar
+FormPars ::= (MultipleFormalParameters) FormPars COMMA SingleFormParSyntaxCheck
              |
-			 (SingleFormalParameter) SingleFormPar ;
+			 (SingleFormalParameter) SingleFormParSyntaxCheck ;
+			 
+SingleFormParSyntaxCheck ::= (SingleFormParSuccess) SingleFormPar
+                             |
+							 (SingleFormParError) error:e
+							 {: parser.detailedErrorDescription ("error in formal parameter declaration"); :} ;
 			 
 SingleFormPar ::= (SingleFormPar) Type IDENT:formParName ArrayVariableOption ;
 
@@ -196,7 +255,7 @@ Statement ::= (MatchedStmt) MatchedStatement
 			  
 MatchedStatement ::= (MatchedDesignatorStatement) DesignatorStatement SEMICOLON
                      |
-					 (MatchedIfStatement) IF LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS MatchedStatement ELSE MatchedStatement
+					 (MatchedIfStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement ELSE MatchedStatement
 					 |
 					 (MatchedWhileStatement) DO MatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON
 					 |
@@ -214,9 +273,9 @@ MatchedStatement ::= (MatchedDesignatorStatement) DesignatorStatement SEMICOLON
 					 |
 					 (StatementBlock) LEFT_BRACE StatementList RIGHT_BRACE ;
 					 
-UnmatchedStatement ::= (UnmatchedIfStatement) IF LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS Statement
+UnmatchedStatement ::= (UnmatchedIfStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS Statement
                        |
-					   (UnmatchedElseStatement) IF LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS MatchedStatement ELSE UnmatchedStatement
+					   (UnmatchedElseStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement ELSE UnmatchedStatement
 					   |
 					   (UnmatchedWhileStatement) DO UnmatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON ;
 					   
@@ -234,13 +293,21 @@ PrintOption ::= (PrintArgument) COMMA NUMBER
                 |
 				(NoPrintArgument) /* epsilon */ ;
 				
-DesignatorStatement ::= (AssignStatement) Designator Assignop Expr
+DesignatorStatement ::= (AssignStatement) Designator Assignop Source
                         |
 						(MethodCallStatement) Designator LEFT_PARENTHESIS ActParsOption RIGHT_PARENTHESIS
 						|
 						(IncrementStatement) Designator INC
 						|
-						(DecrementStatement) Designator DEC ;
+						(DecrementStatement) Designator DEC
+						|
+						(AssignStatementError) error:e
+						{: parser.detailedErrorDescription ("error in designator statement"); :} ;
+						
+Source ::= (AssignSuccess) Expr
+           |
+		   (AssignError) error:e
+		   {: parser.detailedErrorDescription ("error in assign statement"); :} ;
 						
 ActParsOption ::= (ActualParameters) ActPars
                   |
@@ -251,6 +318,11 @@ ActPars ::= (MultipleActualParameters) ActPars COMMA SingleActPar
 			(SingleActualParameter) SingleActPar ;
 			
 SingleActPar ::= (SingleActPar) Expr ;
+
+IfStatementSyntaxCheck ::= (IfStatementSuccess) StatementCondition
+                           |
+						   (IfStatementError) error:e
+						   {: parser.detailedErrorDescription ("error in if statement condition"); :} ;
 
 StatementCondition ::= (ConditionalOperator) CondExpr
                        |
