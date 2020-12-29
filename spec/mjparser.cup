@@ -4,6 +4,7 @@ import java_cup.runtime.*;
 import java.util.*;
 import org.apache.log4j.*;
 import rs.ac.bg.etf.pp1.ast.*;
+import rs.etf.pp1.symboltable.concepts.*;
 
 parser code {:
 
@@ -92,32 +93,40 @@ terminal Character CHAR;
 terminal Boolean BOOL;
 
 non terminal Program;
+non terminal rs.etf.pp1.symboltable.concepts.Obj ProgramName;
 non terminal GlobalDeclarationsList, GlobalDeclaration;
 non terminal GlobalMethodDeclarationsList, ClassMethodDeclarationsList;
 non terminal ConstDecl, VarDecl, ClassDecl;
-non terminal MultipleConstDecl, SingleConstDecl, ConstValue;
+non terminal MultipleConstDecl, SingleConstDecl;
+non terminal rs.etf.pp1.symboltable.concepts.Obj ConstValue;
 non terminal MultipleVarDeclSyntaxCheck, MultipleVarDecl, SingleVarDecl, SingleVarDeclSyntaxCheck, ArrayVariableOption;
-non terminal ExtendsOption, ExtendsSyntaxCheck, FieldsDeclarationsList, ClassMethodDeclarationsOption;
+non terminal ExtendsOption, ExtendsSyntaxCheck, FieldsDeclarationsList, ClassMethodDeclarationsOption, ClassMethodLeftBrace;
+non terminal rs.etf.pp1.symboltable.concepts.Obj ClassName;
 non terminal FieldDecl, MultipleFieldDeclSyntaxCheck, MultipleFieldDecl, SingleFieldDecl, SingleFieldDeclSyntaxCheck;
-non terminal MethodDecl, ReturnType, FormParsOption, LocalVarDeclarationsList, StatementList;
+non terminal MethodDecl, FormParsOption, MethodRightParenthesis, LocalVarDeclarationsList, StatementList;
+non terminal rs.etf.pp1.symboltable.concepts.Obj MethodName;
+non terminal rs.etf.pp1.symboltable.concepts.Struct ReturnType;
 non terminal FormPars, SingleFormParSyntaxCheck, SingleFormPar;
 non terminal LocalVarDecl, MultipleLocalVarDecl, SingleLocalVarDecl;
-non terminal Type;
-non terminal Statement, MatchedStatement, UnmatchedStatement;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Type;
+non terminal Statement, MatchedStatement, UnmatchedStatement, Switch, Do;
 non terminal CaseStatementList, CaseStatement, ReturnExprOption, PrintOption;
-non terminal DesignatorStatement, Source, ActParsOption;
+non terminal DesignatorStatement, ActParsOption;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Source;
 non terminal ActPars, SingleActPar;
-non terminal Condition, IfStatementSyntaxCheck, StatementCondition, CondTerm, CondFact, FirstExpr, SecondExpr, FirstCondExpr, SecondCondExpr, NonCondExpr, CondExpr;
-non terminal Expr;
-non terminal Term;
-non terminal Factor;
-non terminal Designator;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Condition, IfStatementSyntaxCheck, StatementCondition, CondTerm, CondFact;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Expr, FirstExpr, SecondExpr, FirstCondExpr, SecondCondExpr, NonCondExpr, CondExpr;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Term;
+non terminal rs.etf.pp1.symboltable.concepts.Struct Factor;
+non terminal rs.etf.pp1.symboltable.concepts.Obj Designator;
 non terminal Assignop;
 non terminal Relop;
 non terminal Addop;
 non terminal Mulop;
 
-Program ::= (Program) PROGRAM IDENT:programName GlobalDeclarationsList LEFT_BRACE GlobalMethodDeclarationsList RIGHT_BRACE ;
+Program ::= (Program) PROGRAM ProgramName GlobalDeclarationsList LEFT_BRACE GlobalMethodDeclarationsList RIGHT_BRACE ;
+
+ProgramName ::= (ProgramName) IDENT:programName ;
 
 GlobalDeclarationsList ::= (GlobalDeclarations) GlobalDeclarationsList GlobalDeclaration
                            |
@@ -169,7 +178,9 @@ ArrayVariableOption ::= (ArrayVariable) LEFT_BRACKET RIGHT_BRACKET
                         |
 						(NoArrayVariable) /* epsilon */ ;
 						
-ClassDecl ::= (ClassDecl) CLASS IDENT:className ExtendsOption LEFT_BRACE FieldsDeclarationsList ClassMethodDeclarationsOption RIGHT_BRACE ;
+ClassDecl ::= (ClassDecl) CLASS ClassName LEFT_BRACE FieldsDeclarationsList ClassMethodDeclarationsOption RIGHT_BRACE ;
+
+ClassName ::= (ClassName) IDENT:className ExtendsOption ;
 
 ExtendsOption ::= (ClassInheritance) ExtendsSyntaxCheck
                   |
@@ -202,15 +213,19 @@ SingleFieldDeclSyntaxCheck ::= (SingleFieldDeclSuccess) SingleFieldDecl
 			  
 SingleFieldDecl ::= (SingleFieldDecl) IDENT:fieldName ArrayVariableOption ;
 
-ClassMethodDeclarationsOption ::= (ClassMethods) LEFT_BRACE ClassMethodDeclarationsList RIGHT_BRACE
+ClassMethodDeclarationsOption ::= (ClassMethods) ClassMethodLeftBrace ClassMethodDeclarationsList RIGHT_BRACE
                                   |
 								  (NoClassMethods) /* epsilon */ ;
+								  
+ClassMethodLeftBrace ::= (ClassMethodLeftBrace) LEFT_BRACE ;
 								  
 ClassMethodDeclarationsList ::= (ClassMethodDeclarations) ClassMethodDeclarationsList MethodDecl
                                 |
 								(NoClassMethodDeclarations) /* epsilon */ ;
 								
-MethodDecl ::= (MethodDecl) ReturnType IDENT:methodName LEFT_PARENTHESIS FormParsOption RIGHT_PARENTHESIS LocalVarDeclarationsList LEFT_BRACE StatementList RIGHT_BRACE ;
+MethodDecl ::= (MethodDecl) MethodName LEFT_PARENTHESIS FormParsOption MethodRightParenthesis LocalVarDeclarationsList LEFT_BRACE StatementList RIGHT_BRACE ;
+
+MethodName ::= (MethodName) ReturnType IDENT:methodName ;
 
 ReturnType ::= (NoVoidReturn) Type:returnType
                |
@@ -230,6 +245,8 @@ SingleFormParSyntaxCheck ::= (SingleFormParSuccess) SingleFormPar
 							 {: parser.detailedErrorDescription ("error in formal parameter declaration"); :} ;
 			 
 SingleFormPar ::= (SingleFormPar) Type IDENT:formParName ArrayVariableOption ;
+
+MethodRightParenthesis ::= (MethodRightParenthesis) RIGHT_PARENTHESIS ;
 
 LocalVarDeclarationsList ::= (LocalVarDeclarations) LocalVarDeclarationsList LocalVarDecl
                              |
@@ -257,9 +274,9 @@ MatchedStatement ::= (MatchedDesignatorStatement) DesignatorStatement SEMICOLON
                      |
 					 (MatchedIfStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement ELSE MatchedStatement
 					 |
-					 (MatchedWhileStatement) DO MatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON
+					 (MatchedWhileStatement) Do MatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON
 					 |
-					 (MatchedSwitchStatement) SWITCH LEFT_PARENTHESIS Expr RIGHT_PARENTHESIS LEFT_BRACE CaseStatementList RIGHT_BRACE
+					 (MatchedSwitchStatement) Switch LEFT_PARENTHESIS Expr RIGHT_PARENTHESIS LEFT_BRACE CaseStatementList RIGHT_BRACE
 					 |
 					 (BreakStatement) BREAK SEMICOLON
 					 |
@@ -277,7 +294,11 @@ UnmatchedStatement ::= (UnmatchedIfStatement) IF LEFT_PARENTHESIS IfStatementSyn
                        |
 					   (UnmatchedElseStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement ELSE UnmatchedStatement
 					   |
-					   (UnmatchedWhileStatement) DO UnmatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON ;
+					   (UnmatchedWhileStatement) Do UnmatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON ;
+					   
+Do ::= (DoWhileStart) DO ;
+
+Switch ::= (SwitchStart) SWITCH ;
 					   
 CaseStatementList ::= (CaseStatements) CaseStatementList CaseStatement
                       |

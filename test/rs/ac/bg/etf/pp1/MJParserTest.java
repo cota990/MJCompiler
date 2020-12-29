@@ -77,11 +77,25 @@ public class MJParserTest {
 			else log.info("No errors found in syntax analysis");
 			
 			log.info(prog.toString("    "));
+			
+			MyTabImpl.init();
+			
+			SemanticAnalyzer analyzer = new SemanticAnalyzer();
+			prog.traverseBottomUp(analyzer);
+			
+			MyTabImpl.dump();
+			
+			if (analyzer.isSemanticErrorFound())
+				log.info("Errors found in semantic analysis");
+			
+			else
+				log.info("No errors found in semantic analysis");
 		
 		} catch (Exception e) {
 			
 			log.info("PARSING INTERRUPTED");
 			log.info(e.getMessage());
+			e.printStackTrace();
 			
 		}
 		
