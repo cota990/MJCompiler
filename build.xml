@@ -15,6 +15,13 @@
 				<exclude name="MyDumpSymbolTableVisitor.java"/>
 				<exclude name="ProcessingState.java"/>
 				<exclude name="ReportHelper.java"/>
+				<exclude name="ActualParameterSemanticAnalyzer.java"/>
+				<exclude name="CodeGenerator.java"/>
+				<exclude name="ExpressionCodeGenerator.java"/>
+				<exclude name="ConditionalExpressionCodeGenerator.java"/>
+				<exclude name="ControlStructureCodeGenerator.java"/>
+				<exclude name="ActualParameterCodeGenerator.java"/>
+				<exclude name="Compiler.java"/>
 			
 			</fileset>
 		
@@ -89,11 +96,61 @@
 				<pathelement path="lib/cup_v10k.jar"/>
 				<pathelement path="lib/log4j-1.2.17.jar"/>
 				<pathelement path="lib/symboltable-1-1.jar"/>
+				<pathelement path="lib/mj-runtime-1.1.jar"/>
 				
 			</classpath>
 		
 		</javac>
 	
 	</target>
+	
+	<target name="disasm">
+			
+		<java classname="rs.etf.pp1.mj.runtime.disasm">
+				
+			<arg value="test/program.obj"/>
+				
+			<classpath>
+					
+				<pathelement path="lib/mj-runtime-1.1.jar"/>
+				
+			</classpath>
+			
+		</java>
+		
+	</target>
+	
+	<target name="runObjDebug" depends="disasm" >
+			
+		<java classname="rs.etf.pp1.mj.runtime.Run">
+				
+			<arg value="test/program.obj"/>
+			<arg value="-debug"/>
+				
+			<classpath>
+					
+				<pathelement path="lib/mj-runtime-1.1.jar"/>
+				
+			</classpath>
+			
+		</java>
+		
+	</target>
+	
+	<target name="runObj" depends="disasm" >
+				
+			<java classname="rs.etf.pp1.mj.runtime.Run">
+					
+				<arg value="test/program.obj"/>
+					
+				<classpath>
+						
+					<pathelement path="lib/mj-runtime-1.1.jar"/>
+					
+				</classpath>
+				
+			</java>
+			
+		</target>
 	
 </project>

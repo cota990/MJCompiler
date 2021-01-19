@@ -4,6 +4,7 @@ import rs.ac.bg.etf.pp1.ast.*;
 
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.Reader;
 
@@ -12,6 +13,7 @@ import org.apache.log4j.xml.DOMConfigurator;
 
 import java_cup.runtime.Symbol;
 import rs.ac.bg.etf.pp1.util.Log4JUtils;
+import rs.etf.pp1.mj.runtime.Code;
 
 public class MJParserTest {
 	
@@ -90,6 +92,28 @@ public class MJParserTest {
 			
 			else
 				log.info("No errors found in semantic analysis");
+			
+			if (!analyzer.isSemanticErrorFound()
+					&& !lexer.errorFound
+					&& !parser.syntaxErrorFound()) {
+				
+				CodeGenerator generator = new CodeGenerator ();
+				
+				prog.traverseBottomUp(generator);
+				
+				Code.dataSize = generator.getnVars();
+				Code.mainPc = generator.getMainPC();
+				
+				File objFile = new File ("test/program.obj");
+				
+				if (objFile.exists())
+					objFile.delete();
+				
+				Code.write(new FileOutputStream (objFile));
+				
+				log.info("Code written");
+				
+			}
 		
 		} catch (Exception e) {
 			

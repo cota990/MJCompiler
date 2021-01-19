@@ -109,16 +109,17 @@ non terminal rs.etf.pp1.symboltable.concepts.Struct ReturnType;
 non terminal FormPars, SingleFormParSyntaxCheck, SingleFormPar;
 non terminal LocalVarDecl, MultipleLocalVarDecl, SingleLocalVarDecl;
 non terminal rs.etf.pp1.symboltable.concepts.Struct Type;
-non terminal Statement, MatchedStatement, UnmatchedStatement, Switch, Do;
+non terminal Statement, MatchedStatement, UnmatchedStatement, Switch, Do, While;
 non terminal CaseStatementList, CaseStatement, ReturnExprOption, PrintOption;
 non terminal DesignatorStatement, ActParsOption;
 non terminal rs.etf.pp1.symboltable.concepts.Struct Source;
 non terminal ActPars, SingleActPar;
 non terminal rs.etf.pp1.symboltable.concepts.Struct Condition, IfStatementSyntaxCheck, StatementCondition, CondTerm, CondFact;
+non terminal And, Or, If, Else, LeftParenthesis, LeftBracket;
 non terminal rs.etf.pp1.symboltable.concepts.Struct Expr, FirstExpr, SecondExpr, FirstCondExpr, SecondCondExpr, NonCondExpr, CondExpr;
 non terminal rs.etf.pp1.symboltable.concepts.Struct Term;
 non terminal rs.etf.pp1.symboltable.concepts.Struct Factor;
-non terminal rs.etf.pp1.symboltable.concepts.Obj Designator;
+non terminal rs.etf.pp1.symboltable.concepts.Obj Designator, MethodDesignator;
 non terminal Assignop;
 non terminal Relop;
 non terminal Addop;
@@ -272,9 +273,9 @@ Statement ::= (MatchedStmt) MatchedStatement
 			  
 MatchedStatement ::= (MatchedDesignatorStatement) DesignatorStatement SEMICOLON
                      |
-					 (MatchedIfStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement ELSE MatchedStatement
+					 (MatchedIfStatement) If LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement Else MatchedStatement
 					 |
-					 (MatchedWhileStatement) Do MatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON
+					 (MatchedWhileStatement) Do MatchedStatement While LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON
 					 |
 					 (MatchedSwitchStatement) Switch LEFT_PARENTHESIS Expr RIGHT_PARENTHESIS LEFT_BRACE CaseStatementList RIGHT_BRACE
 					 |
@@ -290,13 +291,19 @@ MatchedStatement ::= (MatchedDesignatorStatement) DesignatorStatement SEMICOLON
 					 |
 					 (StatementBlock) LEFT_BRACE StatementList RIGHT_BRACE ;
 					 
-UnmatchedStatement ::= (UnmatchedIfStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS Statement
+UnmatchedStatement ::= (UnmatchedIfStatement) If LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS Statement
                        |
-					   (UnmatchedElseStatement) IF LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement ELSE UnmatchedStatement
+					   (UnmatchedElseStatement) If LEFT_PARENTHESIS IfStatementSyntaxCheck RIGHT_PARENTHESIS MatchedStatement Else UnmatchedStatement
 					   |
-					   (UnmatchedWhileStatement) Do UnmatchedStatement WHILE LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON ;
+					   (UnmatchedWhileStatement) Do UnmatchedStatement While LEFT_PARENTHESIS StatementCondition RIGHT_PARENTHESIS SEMICOLON ;
+					   
+If ::= (IfStart) IF ;
+
+Else ::= (ElseStart) ELSE ;
 					   
 Do ::= (DoWhileStart) DO ;
+
+While ::= (WhileConditionStart) WHILE ;
 
 Switch ::= (SwitchStart) SWITCH ;
 					   
@@ -316,7 +323,7 @@ PrintOption ::= (PrintArgument) COMMA NUMBER
 				
 DesignatorStatement ::= (AssignStatement) Designator Assignop Source
                         |
-						(MethodCallStatement) Designator LEFT_PARENTHESIS ActParsOption RIGHT_PARENTHESIS
+						(MethodCallStatement) MethodDesignator LEFT_PARENTHESIS ActParsOption RIGHT_PARENTHESIS
 						|
 						(IncrementStatement) Designator INC
 						|
@@ -349,13 +356,17 @@ StatementCondition ::= (ConditionalOperator) CondExpr
                        |
 					   (NoConditionalOperator) Condition ;
 
-Condition ::= (MultipleTermCondition) Condition OR CondTerm
+Condition ::= (MultipleTermCondition) Condition Or CondTerm
               |
 			  (SingleTermCondition) CondTerm ;
 			  
-CondTerm ::= (MultipleFactTerm) CondTerm AND CondFact
+CondTerm ::= (MultipleFactTerm) CondTerm And CondFact
              |
 			 (SingleFactTerm) CondFact ;
+			 
+Or ::= (Or) OR ;
+
+And ::= (And) AND ;
 			 
 CondFact ::= (MultipleExprFactor) FirstExpr Relop SecondExpr
              |
@@ -373,7 +384,7 @@ Expr ::= (ConditionalOperatorExpr) CondExpr
          |
 		 (NoConditionalOperatorExpr) NonCondExpr ;
 		 
-CondExpr ::= (CondExpr) Condition QUESTION_MARK FirstCondExpr COLON SecondCondExpr ;
+CondExpr ::= (CondExpr) Condition QUESTION_MARK FirstCondExpr COLON SecondCondExpr;
 
 NonCondExpr ::= (MultipleTermExpr) NonCondExpr Addop Term
                 |
@@ -387,21 +398,33 @@ Term ::= (MultipleFactorTerm) Term Mulop Factor
 		 
 Factor ::= (FactorDesignator) Designator
            |
-		   (MethodCallFactor) Designator LEFT_PARENTHESIS ActParsOption RIGHT_PARENTHESIS
+		   (MethodCallFactor) MethodDesignator LeftParenthesis ActParsOption RIGHT_PARENTHESIS
 		   |
 		   (ConstFactor) ConstValue
 		   |
 		   (NewObjectFactor) NEW Type
 		   |
-		   (NewArrayFactor) NEW Type LEFT_BRACKET Expr RIGHT_BRACKET
+		   (NewArrayFactorNonCondExpr) NEW Type LeftBracket NonCondExpr RIGHT_BRACKET
 		   |
-		   (CompositeFactor) LEFT_PARENTHESIS Expr RIGHT_PARENTHESIS ;
+		   (NewArrayFactorCondExpr) NEW Type LeftBracket CondExpr RIGHT_BRACKET
+		   |
+		   (CompositeFactorNonCondExpr) LeftParenthesis NonCondExpr RIGHT_PARENTHESIS
+		   |
+		   (CompositeFactorCondExpr) LeftParenthesis CondExpr RIGHT_PARENTHESIS;
+		   
+MethodDesignator ::= (MethodDesignator) Designator ;
 		   
 Designator ::= (SimpleDesignator) IDENT:designatorName
                |
 			   (ClassDesignator) Designator PERIOD IDENT:fieldOrMethodName
 			   |
-			   (ArrayDesignator) Designator LEFT_BRACKET Expr RIGHT_BRACKET ;
+			   (ArrayDesignatorNonCondExpr) Designator LeftBracket NonCondExpr RIGHT_BRACKET
+			   |
+			   (ArrayDesignatorCondExpr) Designator LeftBracket CondExpr RIGHT_BRACKET;
+			   
+LeftParenthesis ::= (LeftParenthesis) LEFT_PARENTHESIS;
+
+LeftBracket ::= (LeftBracket) LEFT_BRACKET;
 			   
 Assignop ::= (Assign) ASSIGN ;
 

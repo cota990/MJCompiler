@@ -46,8 +46,6 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 	
 	private List<Set<Integer>> switchNumConsts = new ArrayList <Set <Integer>> ();
 	
-	private boolean semanticErrorFound = false;
-	
 	public boolean isSemanticErrorFound() {
 		
 		return reporter.isSemanticErrorFound();
@@ -167,7 +165,7 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 			else 
 				type.struct = foundType.getType();
 			
-			reporter.reportSemanticDetection(type, foundType);
+			reporter.reportSemanticDetection(type, "type", foundType);
 			
 		}
 	
@@ -720,6 +718,9 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 			Obj designator = as.getDesignator().obj;
 			Struct source = as.getSource().struct;
 			
+			//log.info(designator == null);
+			//log.info(source == null);
+			
 			if (designator.getKind() != Obj.Var
 					&& designator.getKind() != Obj.Fld
 					&& designator.getKind() != Obj.Elem)
@@ -740,14 +741,26 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 	 */
 	public void visit (MethodCallStatement mcs) {
 		
-		if (mcs.getDesignator().obj != Tab.noObj) {
+		if (mcs.getMethodDesignator().obj != Tab.noObj) {
 			
-			Obj designator = mcs.getDesignator().obj;
+			Obj designator = mcs.getMethodDesignator().obj;
 			
-			if (designator.getKind() != Obj.Meth)
-				reporter.reportSemanticError(designator.getName() + " must be global or class method", mcs.getDesignator());
+			//if (designator.getKind() != Obj.Meth)
+				//reporter.reportSemanticError(designator.getName() + " must be global or class method", mcs.getDesignator());
 			
-			// TODO actual parameters check
+			ActualParameterSemanticAnalyzer actParsCounter = new ActualParameterSemanticAnalyzer(designator, true, reporter);
+			mcs.getActParsOption().traverseBottomUp(actParsCounter);
+			
+			if (actParsCounter.getActParsCount()
+					!= mcs.getMethodDesignator().obj.getLevel())
+				reporter.reportSemanticError("Numbers of actual and formal parameters do not match", mcs.getActParsOption());
+			
+			else {
+			
+				ActualParameterSemanticAnalyzer actParsAnalyzer = new ActualParameterSemanticAnalyzer(designator, false, reporter);
+				mcs.getActParsOption().traverseBottomUp(actParsAnalyzer);
+			
+			}
 			
 		}
 		
@@ -808,7 +821,7 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 	 * <br> starts new do-while loop, used for break and continue check
 	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.Do)
 	 */
-	public void visit (Do d) {
+	public void visit (DoWhileStart d) {
 		
 		whileCounter++;
 	
@@ -819,7 +832,7 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 	 * <br> starts new switch statement, used for break check
 	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.Switch)
 	 */
-	public void visit (Switch s) {
+	public void visit (SwitchStart s) {
 		
 		switchCounter++;
 		
@@ -1156,6 +1169,12 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 	 * expressions
 	 */
 	
+	public void visit (AssignSuccess as) {
+		
+		as.struct = as.getExpr().struct;
+		
+	}
+	
 	/** CondExpr processing;
 	 * <br> CondExpr ::= Condition QUESTION_MARK FirstCondExpr COLON SecondCondExpr
 	 * <br> FirstCondExpr and SecondCondExpr must be of same Struct
@@ -1400,26 +1419,27 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 	
 	/** MethodCallFactor processing;
 	 * <br> MethodCallFactor ::= Designator LEFT_PARENTHESIS ActPars RIGHT_PARENTHESIS
-	 * <br> Designator must be Obj.Meth
 	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.MethodCallFactor)
 	 */
 	public void visit (MethodCallFactor mcf) {
 		
-		if (mcf.getDesignator().obj != MyTabImpl.noObj) {
+		if (mcf.getMethodDesignator().obj != MyTabImpl.noObj) {
 			
-			Obj designator = mcf.getDesignator().obj;
+			mcf.struct = mcf.getMethodDesignator().obj.getType();
 			
-			if (designator.getKind() != Obj.Meth) {
-				
-				reporter.reportSemanticError(designator.getName() + " must be method", mcf.getDesignator());
-				mcf.struct = MyTabImpl.noType;
-				
+			ActualParameterSemanticAnalyzer actParsCounter = new ActualParameterSemanticAnalyzer(mcf.getMethodDesignator().obj, true, reporter);
+			mcf.getActParsOption().traverseBottomUp(actParsCounter);
+			
+			if (actParsCounter.getActParsCount()
+					!= mcf.getMethodDesignator().obj.getLevel())
+				reporter.reportSemanticError("Numbers of actual and formal parameters do not match", mcf.getActParsOption());
+			
+			else {
+			
+				ActualParameterSemanticAnalyzer actParsAnalyzer = new ActualParameterSemanticAnalyzer(mcf.getMethodDesignator().obj, false, reporter);
+				mcf.getActParsOption().traverseBottomUp(actParsAnalyzer);
+			
 			}
-			
-			else
-				mcf.struct = designator.getType();
-			
-			// TODO actual params check
 			
 		}
 		
@@ -1459,19 +1479,19 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 		
 	}
 	
-	/** NewArrayFactor processing;
-	 * <br> NewArrayFactor ::= NEW Type LEFT_BRACKET Expr RIGHT_BRACKET
+	/** NewArrayFactorNonCondExpr processing;
+	 * <br> NewArrayFactorNonCondExpr ::= NEW Type LEFT_BRACKET NonCondExpr RIGHT_BRACKET
 	 * <br> Expr must be Struct.Int
 	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.NewArrayFactor)
 	 */
-	public void visit (NewArrayFactor naf) {
+	public void visit (NewArrayFactorNonCondExpr naf) {
 		
 		if (naf.getType().struct != MyTabImpl.noType
-				&& naf.getExpr().struct != MyTabImpl.noType) {
+				&& naf.getNonCondExpr().struct != MyTabImpl.noType) {
 			
-			if (naf.getExpr().struct.getKind() != Struct.Int) {
+			if (naf.getNonCondExpr().struct.getKind() != Struct.Int) {
 				
-				reporter.reportSemanticError("Expression between brackets must be int", naf.getExpr());
+				reporter.reportSemanticError("Expression between brackets must be int", naf.getNonCondExpr());
 				naf.struct = MyTabImpl.noType;
 				
 			}
@@ -1486,19 +1506,84 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 		
 	}
 	
-	/** CompositeFactor processing;
-	 * <br> CompositeFactor ::= LEFT_PARENTHESIS Expr RIGHT_PARENTHESIS
+	/** NewArrayFactorCondExpr processing;
+	 * <br> NewArrayFactorCondExpr ::= NEW Type LEFT_BRACKET CondExpr RIGHT_BRACKET
+	 * <br> Expr must be Struct.Int
+	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.NewArrayFactor)
+	 */
+	public void visit (NewArrayFactorCondExpr naf) {
+		
+		if (naf.getType().struct != MyTabImpl.noType
+				&& naf.getCondExpr().struct != MyTabImpl.noType) {
+			
+			if (naf.getCondExpr().struct.getKind() != Struct.Int) {
+				
+				reporter.reportSemanticError("Expression between brackets must be int", naf.getCondExpr());
+				naf.struct = MyTabImpl.noType;
+				
+			}
+			
+			else
+				naf.struct = new Struct (Struct.Array, naf.getType().struct);
+			
+		}
+		
+		else
+			naf.struct = MyTabImpl.noType;
+		
+	}
+	
+	/** CompositeFactorNonCondExpr processing;
+	 * <br> CompositeFactor ::= LEFT_PARENTHESIS NonCondExpr RIGHT_PARENTHESIS
 	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.CompositeFactor)
 	 */
-	public void visit (CompositeFactor cf) {
+	public void visit (CompositeFactorNonCondExpr cf) {
 		
-		cf.struct = cf.getExpr().struct;
+		cf.struct = cf.getNonCondExpr().struct;
+		
+	}
+	
+	/** CompositeFactorCondExpr processing;
+	 * <br> CompositeFactor ::= LEFT_PARENTHESIS CondExpr RIGHT_PARENTHESIS
+	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.CompositeFactor)
+	 */
+	public void visit (CompositeFactorCondExpr cf) {
+		
+		cf.struct = cf.getCondExpr().struct;
 		
 	}
 	
 	/**
 	 * designators
 	 */
+	
+	/** MethodDesignator processing;
+	 * <br> MethodDesignator ::= Designator
+	 * <br> Designator must be Obj.Meth
+	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.MethodDesignator)
+	 */
+	public void visit (MethodDesignator md) {
+		
+		if (md.getDesignator().obj != MyTabImpl.noObj) {
+			
+			Obj designator = md.getDesignator().obj;
+			
+			if (designator.getKind() != Obj.Meth) {
+				
+				reporter.reportSemanticError(designator.getName() + " must be method", md.getDesignator());
+				md.obj = MyTabImpl.noObj;
+				
+			}
+			
+			else 
+				md.obj = designator;
+			
+		}
+		
+		else
+			md.obj = MyTabImpl.noObj;
+		
+	}
 	
 	/** SimpleDesignator processing;
 	 * <br> SimpleDesignator ::= IDENT
@@ -1511,25 +1596,51 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 		if (sd.obj == MyTabImpl.noObj)
 			reporter.reportSemanticError(sd.getDesignatorName() + " is not declared", sd);
 		
-		else 
-			reporter.reportSemanticDetection(sd, sd.obj);
+		else {
+			
+			StringBuilder type = new StringBuilder ();
+			if (sd.obj.getKind() == Obj.Con)
+				type.append("global constant");
+			
+			else if (sd.obj.getKind() == Obj.Meth)
+				type.append("method call");
+			
+			else if (sd.obj.getKind() == Obj.Var) {
+				
+				if (sd.obj.getLevel() == 0)
+					type.append("global variable");
+				
+				else {
+					
+					if (sd.obj.getFpPos() == -1)
+						type.append("local variable");
+					
+					else
+						type.append("method formal parameter");
+					
+				}
+			}
+			
+			reporter.reportSemanticDetection(sd, type.toString(), sd.obj);
+			
+		}
 		
 	}
 	
-	/** ArrayDesignator processing;
-	 * <br> ArrayDesignator ::= Designator LEFT_BRACKET Expr RIGHT_BRACKET
+	/** ArrayDesignatorNonCondExpr processing;
+	 * <br> ArrayDesignatorNonCondExpr ::= Designator LEFT_BRACKET NonCondExpr RIGHT_BRACKET
 	 * <br> Designator must be Struct.Array
 	 * <br> Expr must be Struct.Int
 	 * <br> Designator and Expr already processed, must check if Designator != Tab.noObj && Expr != Tab.noType
 	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.ArrayDesignator)
 	 */
-	public void visit (ArrayDesignator ad) {
+	public void visit (ArrayDesignatorNonCondExpr ad) {
 		
 		if (ad.getDesignator().obj != MyTabImpl.noObj
-				&& ad.getExpr().struct != MyTabImpl.noType) {
+				&& ad.getNonCondExpr().struct != MyTabImpl.noType) {
 			
 			Obj designator = ad.getDesignator().obj;
-			Struct exprType = ad.getExpr().struct;
+			Struct exprType = ad.getNonCondExpr().struct;
 			
 			if (designator.getType().getKind() != Struct.Array
 					|| exprType.getKind() != Struct.Int) {
@@ -1538,7 +1649,51 @@ public class SemanticAnalyzer extends VisitorAdaptor {
 					reporter.reportSemanticError(designator.getName() + " must be array", ad.getDesignator());
 				
 				if (exprType.getKind() != Struct.Int)
-					reporter.reportSemanticError("Expression between brackets must be int", ad.getExpr());
+					reporter.reportSemanticError("Expression between brackets must be int", ad.getNonCondExpr());
+				
+				ad.obj = MyTabImpl.noObj;
+				
+			}
+			
+			else {
+				
+				ad.obj = new Obj (Obj.Elem, "Elem of " + designator.getName(), 
+						designator.getType().getElemType(), designator.getAdr(), designator.getLevel());
+				
+				reporter.reportSemanticDetection(ad, "element of array", ad.obj);
+				
+			}
+			
+		}
+		
+		else
+			ad.obj = MyTabImpl.noObj;
+		
+	}
+	
+	/** ArrayDesignatorCondExpr processing;
+	 * <br> ArrayDesignatorCondExpr ::= Designator LEFT_BRACKET CondExpr RIGHT_BRACKET
+	 * <br> Designator must be Struct.Array
+	 * <br> Expr must be Struct.Int
+	 * <br> Designator and Expr already processed, must check if Designator != Tab.noObj && Expr != Tab.noType
+	 * @see rs.ac.bg.etf.pp1.ast.VisitorAdaptor#visit(rs.ac.bg.etf.pp1.ast.ArrayDesignator)
+	 */
+	public void visit (ArrayDesignatorCondExpr ad) {
+		
+		if (ad.getDesignator().obj != MyTabImpl.noObj
+				&& ad.getCondExpr().struct != MyTabImpl.noType) {
+			
+			Obj designator = ad.getDesignator().obj;
+			Struct exprType = ad.getCondExpr().struct;
+			
+			if (designator.getType().getKind() != Struct.Array
+					|| exprType.getKind() != Struct.Int) {
+				
+				if (designator.getType().getKind() != Struct.Array)
+					reporter.reportSemanticError(designator.getName() + " must be array", ad.getDesignator());
+				
+				if (exprType.getKind() != Struct.Int)
+					reporter.reportSemanticError("Expression between brackets must be int", ad.getCondExpr());
 				
 				ad.obj = MyTabImpl.noObj;
 				

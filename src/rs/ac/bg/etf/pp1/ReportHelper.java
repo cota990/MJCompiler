@@ -102,10 +102,10 @@ public class ReportHelper extends DumpSymbolTableVisitor {
 	
 	}
 	
-	public void reportSemanticDetection (SyntaxNode node, Obj symbolTableNode) {
+	public void reportSemanticDetection (SyntaxNode node, String type, Obj symbolTableNode) {
 		
 		output.
-			append("Detected usage of symbol: ").
+			append("Detected usage of symbol ( " + type + ") : ").
 			append(symbolTableNode.getName()).
 			append(" on line ").
 			append(node.getLine());

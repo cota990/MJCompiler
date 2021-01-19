@@ -73,6 +73,26 @@ public class MyTabImpl extends Tab {
 		currentLevel--;
 	}
 	
+	/**
+	 * Pravi se novi Obj cvor sa prosledjenim atributima kind, name i type, pa se
+	 * zatim ubacuje u tabelu simbola. Povratna vrednost: - novostvoreni cvor, ako
+	 * cvor sa tim imenom nije vec postojao u tabeli simbola. - postojeci cvor iz
+	 * tabele simbola, ako je doslo do greske jer smo pokusali da u tabelu simbola
+	 * za opseg ubacimo cvor sa imenom koje vec postoji.
+	 */
+	public static Obj insert(int kind, String name, Struct type) {
+		// create a new Object node with kind, name, type
+		Obj newObj = new Obj(kind, name, type, 0, ((currentLevel != 0)? 1 : 0)); 
+		
+		// append the node to the end of the symbol list
+		if (!currentScope.addToLocals(newObj)) {
+			Obj res = currentScope.findSymbol(name);
+			return (res != null) ? res : noObj;
+		}
+		else 
+			return newObj;
+	}
+	
 	public static void dump(SymbolTableVisitor stv) {
 		System.out.println("=====================SYMBOL TABLE DUMP=========================");
 		if (stv == null)
